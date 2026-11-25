@@ -20,7 +20,10 @@ async function request<T>(url:string, init?:RequestInit):Promise<T>{
     const detail = diagnostics
       ? ` (API: HTTP ${diagnostics.upstreamStatus ?? response.status}; ${diagnostics.upstreamContentType || 'brak Content-Type'}; odpowiedź: ${diagnostics.upstreamResponse || '(pusta)'})`
       : '';
-    throw new Error((data?.message||data?.error||`HTTP ${response.status}`) + detail);
+    const headerDetail = diagnostics?.upstreamHeaders
+      ? `; nagłówki: ${JSON.stringify(diagnostics.upstreamHeaders)}`
+      : '';
+    throw new Error((data?.message||data?.error||`HTTP ${response.status}`) + detail + headerDetail);
   }
   return data as T;
 }
