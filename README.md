@@ -52,3 +52,11 @@ Backend udostępnia aplikacji odpowiadające im endpointy `/api/*`.
 - Token upstream nie jest wysyłany do przeglądarki ani logowany.
 - Cookie aplikacji ma flagę HttpOnly i SameSite=Lax; w produkcji również Secure.
 - Nie commituj pliku `.env`.
+
+## Wdrożenie z telefonu (Render)
+1. Otwórz Render i zaloguj się przez GitHub.
+2. Wybierz **New → Blueprint** i wskaż repozytorium `PandaCwel/Bbbbb`.
+3. Render odczyta `render.yaml`, zbuduje frontend i uruchomi Express.
+4. Po zakończeniu wdrożenia otwórz wygenerowany adres HTTPS. Aplikacja i backend działają pod tym samym adresem.
+
+Nie publikuj aplikacji jako samego GitHub Pages: Pages hostuje pliki statyczne i nie uruchomi serwera Express potrzebnego do bezpiecznego przechowywania sesji API.
