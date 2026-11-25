@@ -34,7 +34,7 @@ async function upstream(pathname, { method='GET', session, body, multipart=false
   let payload;
   if (multipart) payload = body;
   else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
-  const response = await fetch(new URL(pathname, API + '/'), { method, headers, body: payload });
+  const response = await fetch(new URL(API + pathname), { method, headers, body: payload });
   const raw = await response.text();
   let data = raw;
   try { data = raw ? JSON.parse(raw) : null; } catch {}
