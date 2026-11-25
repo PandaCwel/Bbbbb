@@ -1,56 +1,57 @@
-import { useEffect, useState } from 'react';
-import { BookOpen, Brain, CarFront, CheckCircle2, CircleHelp, Clock3, GraduationCap, ShieldCheck, Signal, UserRound } from 'lucide-react';
-import { api, type ApiHealth } from './api';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, Brain, CarFront, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Clock3, GraduationCap, LogOut, ShieldCheck, Signal, UserRound, X } from 'lucide-react';
+import { api, type ApiHealth, type Execution, type Module, type Profile, type Progress } from './api';
 
-type Tab = 'home' | 'learn' | 'exam' | 'profile';
+type Tab='home'|'learn'|'exam'|'profile';
+type Mode='learning'|'exam';
+export default function App(){
+ const [tab,setTab]=useState<Tab>('home');
+ const [health,setHealth]=useState<ApiHealth|null>(null);
+ const [profile,setProfile]=useState<Profile|null>(null);
+ const [logged,setLogged]=useState(false);
+ const [username,setUsername]=useState('');
+ const [password,setPassword]=useState('');
+ const [authBusy,setAuthBusy]=useState(false);
+ const [error,setError]=useState('');
+ const [modules,setModules]=useState<Module[]>([]);
+ const [progress,setProgress]=useState<Progress[]>([]);
+ const [session,setSession]=useState<Execution[]>([]);
+ const [mode,setMode]=useState<Mode>('learning');
+ const [moduleId,setModuleId]=useState('');
+ const [index,setIndex]=useState(0);
+ const [choice,setChoice]=useState<string|null>(null);
+ const [checked,setChecked]=useState(false);
+ const [busy,setBusy]=useState(false);
+ const [examNotice,setExamNotice]=useState('');
+ const [showLogin,setShowLogin]=useState(false);
 
-export default function App() {
-  const [tab, setTab] = useState<Tab>('home');
-  const [health, setHealth] = useState<ApiHealth | null>(null);
-  const [apiError, setApiError] = useState('');
-  const [notice, setNotice] = useState('');
-
-  useEffect(() => {
-    api.health().then(setHealth).catch((error: Error) => setApiError(error.message));
-  }, []);
-
-  const cards = [
-    { icon: BookOpen, title: 'Nauka działami', detail: 'Przerabiaj materiał krok po kroku', tab: 'learn' as Tab },
-    { icon: Brain, title: 'Egzamin próbny', detail: 'Sprawdź wiedzę w warunkach egzaminu', tab: 'exam' as Tab },
-    { icon: GraduationCap, title: 'Moje postępy', detail: 'Wróć do nauki i śledź wyniki', tab: 'profile' as Tab }
-  ];
-
-  return <div className="app-shell">
-    <header className="topbar">
-      <div className="brand"><div className="brand-icon"><CarFront size={22}/></div><div><strong>TEORIA B</strong><span>PRAWKO MOBILE</span></div></div>
-      <button className="avatar" onClick={() => setTab('profile')} aria-label="Profil"><UserRound size={19}/></button>
-    </header>
-
-    <main>
-      {tab === 'home' && <>
-        <section className="hero">
-          <div className="eyebrow"><span className="pulse"/> TWOJA DROGA DO PRAWA JAZDY</div>
-          <h1>Wiedza, która<br/><em>prowadzi do celu.</em></h1>
-          <p>Ucz się teorii na kategorię B, rozwiązuj pytania i przygotuj się do egzaminu.</p>
-          <button className="primary" onClick={() => setTab('learn')}>Rozpocznij naukę <span>→</span></button>
-          <div className="hero-mark"><CarFront size={116} strokeWidth={1}/></div>
-        </section>
-        <div className="section-heading"><div><span className="eyebrow muted">TWÓJ PLAN</span><h2>Co dziś robimy?</h2></div><span className="date-label">KATEGORIA B</span></div>
-        <div className="feature-list">{cards.map(({icon: Icon,title,detail,tab: target}, i) =>
-          <button className="feature-card" key={title} onClick={() => setTab(target)}>
-            <div className={`feature-icon tone-${i}`}><Icon size={22}/></div><div className="feature-copy"><strong>{title}</strong><span>{detail}</span></div><span className="arrow">↗</span>
-          </button>)}</div>
-        <section className="status-card"><div className="status-icon"><Signal size={18}/></div><div><strong>Połączenie z API</strong><span>{health?.upstreamConfigured ? 'Skonfigurowano adres zewnętrznego API' : 'Oczekiwanie na konfigurację dostawcy API'}</span></div><span className={health?.upstreamConfigured ? 'status-dot online' : 'status-dot'}/></section>
-        {apiError && <p className="error">{apiError}</p>}
-      </>}
-      {tab === 'learn' && <section className="page"><span className="eyebrow muted">STREFA NAUKI</span><h1>Ucz się <em>skutecznie.</em></h1><p className="lead">Wybierz dział i ćwicz pytania tematyczne.</p><div className="empty-state"><BookOpen size={34}/><h3>Moduły nauki</h3><p>Lista działów zostanie pobrana z API po skonfigurowaniu adresu i właściwego formatu odpowiedzi.</p><button className="secondary" onClick={() => api.questions().then(() => setNotice('Połączenie z endpointem pytań działa.')).catch((e: Error) => setNotice(e.message))}>Sprawdź API pytań</button>{notice && <small>{notice}</small>}</div></section>}
-      {tab === 'exam' && <section className="page"><span className="eyebrow muted">TRYB EGZAMINACYJNY</span><h1>Sprawdź <em>swoją wiedzę.</em></h1><p className="lead">Przygotuj się do egzaminu teoretycznego kategorii B.</p><div className="exam-info"><div><Clock3/><strong>25 min</strong><span>Limit czasu</span></div><div><CircleHelp/><strong>32 pytania</strong><span>Format egzaminu</span></div><div><ShieldCheck/><strong>Egzamin</strong><span>Tryb treningowy</span></div></div><button className="primary wide" onClick={() => api.startExam({ category: 'B' }).then(() => setNotice('Egzamin został uruchomiony.')).catch((e: Error) => setNotice(e.message))}>Połącz z API i rozpocznij <span>→</span></button>{notice && <p className="notice">{notice}</p>}</section>}
-      {tab === 'profile' && <section className="page"><span className="eyebrow muted">TWOJE KONTO</span><h1>Twój <em>postęp.</em></h1><div className="empty-state"><UserRound size={34}/><h3>Profil użytkownika</h3><p>Logowanie i synchronizacja postępów zostaną aktywowane po potwierdzeniu kontraktu API.</p><div className="api-pill"><CheckCircle2 size={16}/> Identyfikator szkoły: {health?.schoolId || 'nieustawiony'}</div></div></section>}
-    </main>
-
-    <nav className="bottom-nav">
-      {([{id:'home',label:'Start',icon:CarFront},{id:'learn',label:'Nauka',icon:BookOpen},{id:'exam',label:'Egzamin',icon:Brain},{id:'profile',label:'Profil',icon:UserRound}] as const).map(({id,label,icon: Icon}) =>
-        <button key={id} className={tab === id ? 'nav-item active' : 'nav-item'} onClick={() => {setTab(id);setNotice('');}}><Icon size={20}/><span>{label}</span></button>)}
-    </nav>
-  </div>;
+ useEffect(()=>{api.health().then(setHealth).catch(()=>{});},[]);
+ useEffect(()=>{if(logged){refreshProfile();api.modules(profile?.category||'B').then(setModules).catch(e=>setError(e.message));api.progress().then(setProgress).catch(()=>{});}},[logged]);
+ async function refreshProfile(){try{const p=await api.profile();setProfile(p);}catch(e){setError((e as Error).message);}}
+ async function login(e:React.FormEvent){e.preventDefault();setAuthBusy(true);setError('');try{await api.login({username,password});setLogged(true);setShowLogin(false);setPassword('');}catch(e){setError((e as Error).message);}finally{setAuthBusy(false);}}
+ async function logout(){try{await api.logout();}catch{}setLogged(false);setProfile(null);setSession([]);setTab('home');}
+ async function openModule(m:Module){setBusy(true);setError('');try{const data=await api.learning(String(m.moduleId));setSession(data.execution||[]);setMode('learning');setModuleId(String(m.moduleId));setIndex(0);setChoice(null);setChecked(false);setTab('learn');if(data.execution?.[0]?.question) await api.seen(data.execution[0].question,String(m.moduleId));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function startExam(){setBusy(true);setError('');setExamNotice('');try{const data=await api.startExam(profile?.category||'B');setSession(data.execution||[]);setMode('exam');setModuleId('');setIndex(0);setChoice(null);setChecked(false);setTab('exam');setExamNotice('Egzamin został pobrany. Zapis odpowiedzi i finalizacja nie są jeszcze potwierdzone przez przechwycone API.');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ const current=session[index];
+ const options=useMemo(()=>current?.question?[['A',current.question.answerA],['B',current.question.answerB],['C',current.question.answerC]].filter((x):x is [string,string]=>Boolean(x[1]?.trim())):[],[current]);
+ async function nextQuestion(){if(!current)return;setBusy(true);try{if(mode==='learning'){await api.storeProgress({moduleId,questionNumber:index+1,max:session.length,category:profile?.category||'B'});if(index+1<session.length)await api.seen(session[index+1].question,moduleId);api.progress().then(setProgress).catch(()=>{});}if(index+1<session.length){setIndex(index+1);setChoice(null);setChecked(false);}else{setSession([]);if(mode==='learning'){setTab('profile');setExamNotice('Moduł ukończony.');}else setExamNotice('Dotarłeś do ostatniego pytania. API nie udostępniło jeszcze potwierdzonej operacji zakończenia egzaminu.');}}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function selectAnswer(value:string){setChoice(value);if(mode==='learning'&&current){try{await api.seen(current.question,moduleId);}catch{}setChecked(true);}}
+ const cards=[{icon:BookOpen,title:'Nauka działami',detail:'Wybierz moduł i ćwicz pytania',target:'learn' as Tab},{icon:Brain,title:'Egzamin próbny',detail:'Zestaw pytań w trybie egzaminu',target:'exam' as Tab},{icon:GraduationCap,title:'Postępy',detail:'Sprawdź zapisane wyniki nauki',target:'profile' as Tab}];
+ return <div className="app-shell">
+  <header className="topbar"><button className="brand" onClick={()=>setTab('home')}><div className="brand-icon"><CarFront size={22}/></div><div><strong>TEORIA B</strong><span>PRAWKO MOBILE</span></div></button><button className="avatar" onClick={()=>logged?setTab('profile'):setShowLogin(true)} aria-label="Profil"><UserRound size={19}/></button></header>
+  <main>
+   {tab==='home'&&<><section className="hero"><div className="eyebrow"><span className="pulse"/> TWOJA DROGA DO PRAWA JAZDY</div><h1>Wiedza, która<br/><em>prowadzi do celu.</em></h1><p>Ucz się teorii na kategorię B, rozwiązuj pytania i przygotuj się do egzaminu.</p><button className="primary" onClick={()=>logged?setTab('learn'):setShowLogin(true)}>{logged?'Przejdź do nauki':'Zaloguj się'} <span>→</span></button><div className="hero-mark"><CarFront size={116} strokeWidth={1}/></div></section>
+    <div className="section-heading"><div><span className="eyebrow muted">TWÓJ PLAN</span><h2>Co dziś robimy?</h2></div><span className="date-label">KATEGORIA B</span></div>
+    <div className="feature-list">{cards.map(({icon:Icon,title,detail,target},i)=><button className="feature-card" key={title} onClick={()=>{if(!logged){setShowLogin(true);return;}setTab(target);}}><div className={'feature-icon tone-'+i}><Icon size={22}/></div><div className="feature-copy"><strong>{title}</strong><span>{detail}</span></div><span className="arrow">↗</span></button>)}</div>
+    <section className="status-card"><div className="status-icon"><Signal size={18}/></div><div><strong>Oryginalne API</strong><span>{health?.ok?'Backend aplikacji działa':'Sprawdzanie połączenia'}</span></div><span className="status-dot online"/></section>
+    {logged&&profile&&<p className="welcome">Witaj{profile.firstName?' '+profile.firstName:''}! Miło Cię widzieć.</p>}</>}
+   {tab==='learn'&&!current&&<section className="page"><span className="eyebrow muted">STREFA NAUKI</span><h1>Ucz się <em>skutecznie.</em></h1><p className="lead">Wybierz dział i ćwicz pytania tematyczne.</p>{modules.length? <div className="module-list">{modules.map(m=><button className="module-card" key={m.id+'-'+m.moduleId} onClick={()=>openModule(m)} disabled={busy}><span className="module-count">{m.count}</span><span><strong>Moduł {m.moduleId}</strong><small>{m.count} pytań w bazie</small></span><ChevronRight/></button>)}</div>:<div className="empty-state"><BookOpen size={34}/><h3>Brak listy modułów</h3><p>Zaloguj się, aby pobrać moduły z serwera.</p></div>}</section>}
+   {tab==='exam'&&!current&&<section className="page"><span className="eyebrow muted">TRYB EGZAMINACYJNY</span><h1>Sprawdź <em>swoją wiedzę.</em></h1><p className="lead">Uruchom rzeczywisty zestaw egzaminacyjny pobrany z API.</p><div className="exam-info"><div><CircleHelp/><strong>32 pytania*</strong><span>*liczba z przechwyconej sesji</span></div><div><ShieldCheck/><strong>Kategoria B</strong><span>Język polski</span></div><div><Clock3/><strong>Czas nieustalony</strong><span>Brak potwierdzonych danych</span></div></div><button className="primary wide" disabled={!logged||busy} onClick={startExam}>{busy?'Pobieranie…':logged?'Rozpocznij egzamin':'Zaloguj się, aby rozpocząć'} <span>→</span></button>{examNotice&&<p className="notice">{examNotice}</p>}</section>}
+   {tab==='profile'&&<section className="page"><span className="eyebrow muted">TWOJE KONTO</span><h1>Twój <em>postęp.</em></h1>{logged&&profile?<><div className="profile-card"><div className="profile-avatar"><UserRound/></div><h3>{[profile.firstName,profile.lastName].filter(Boolean).join(' ')||profile.email||'Kursant'}</h3><p>{profile.email||'Konto kursanta'} · kat. {profile.category||'B'}</p><div className="stats"><div><strong>{profile.viewedQuestions??0}</strong><span>Obejrzane pytania</span></div><div><strong>{profile.exams??0}</strong><span>Egzaminy</span></div><div><strong>{profile.passed??0}</strong><span>Zaliczone</span></div></div></div><h2 className="subheading">Zapisane postępy</h2>{progress.length?progress.map((p,i)=><div className="progress-row" key={p.moduleId+'-'+i}><span>Moduł {p.moduleId}</span><strong>{p.questionNumber}/{p.max}</strong></div>):<p className="lead">Brak zapisanych postępów.</p>}<button className="secondary logout" onClick={logout}><LogOut size={16}/> Wyloguj się</button></>:<div className="empty-state"><UserRound size={34}/><h3>Twój profil</h3><p>Zaloguj się, aby zobaczyć swoje dane i postępy.</p><button className="secondary" onClick={()=>setShowLogin(true)}>Zaloguj się</button></div>}</section>}
+   {current&&<section className="question-page"><div className="question-top"><button className="back-button" onClick={()=>{setSession([]);setTab(mode==='learning'?'learn':'exam');}}> <ChevronLeft/> Wróć</button><span>{mode==='learning'?'NAUKA':'EGZAMIN'} · {index+1}/{session.length}</span></div><div className="progress-track"><i style={{width:`${(index+1)/session.length*100}%`}}/></div><div className="question-meta">{current.question.module?.name||'Pytanie'} <span>{current.question.weight} pkt</span></div><h2 className="question-text">{current.question.questionText}</h2>{current.question.media&&<div className="media-placeholder">Materiał: {current.question.media}<small>Adres multimediów nie został ustalony w przechwyconym API.</small></div>}<div className="answers">{options.map(([letter,value])=><button key={letter} className={'answer '+(choice===letter?'selected':'')+(checked&&letter===current.question.correct?' is-correct':'')+(checked&&choice===letter&&letter!==current.question.correct?' is-wrong':'')} onClick={()=>selectAnswer(letter)} disabled={checked&&mode==='learning'}><b>{letter}</b><span>{value}</span>{checked&&letter===current.question.correct&&<CheckCircle2/>}</button>)}</div>{checked&&mode==='learning'&&<div className="explanation"><strong>{choice===current.question.correct?'Dobrze!':'Nie tym razem.'}</strong><p>{current.question.explenation||current.question.legalSource||'Brak dodatkowego wyjaśnienia w danych pytania.'}</p>{current.question.legalSource&&<small>{current.question.legalSource}</small>}</div>}{mode==='exam'&&<p className="exam-warning">W egzaminie odpowiedzi są tymczasowo przechowywane tylko w tej sesji. Mechanizm wysyłania odpowiedzi i kończenia egzaminu nie został potwierdzony.</p>}<div className="question-actions"><button className="secondary" disabled={index===0||busy} onClick={()=>{setIndex(index-1);setChoice(null);setChecked(false);}}><ChevronLeft/> Wstecz</button><button className="primary" disabled={busy||(mode==='learning'&&!checked)||!choice} onClick={nextQuestion}>{index===session.length-1?'Zakończ':'Dalej'} <ChevronRight/></button></div></section>}
+   {error&&<div className="error-banner"><span>{error}</span><button onClick={()=>setError('')}><X size={16}/></button></div>}
+  </main>
+  <nav className="bottom-nav">{([{id:'home',label:'Start',icon:CarFront},{id:'learn',label:'Nauka',icon:BookOpen},{id:'exam',label:'Egzamin',icon:Brain},{id:'profile',label:'Profil',icon:UserRound}] as const).map(({id,label,icon:Icon})=><button key={id} className={tab===id?'nav-item active':'nav-item'} onClick={()=>{setSession([]);setTab(id);setError('');}}><Icon size={20}/><span>{label}</span></button>)}</nav>
+  {showLogin&&<div className="modal-backdrop" onClick={()=>setShowLogin(false)}><form className="login-modal" onSubmit={login} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close" onClick={()=>setShowLogin(false)}><X/></button><span className="eyebrow muted">KONTO KURSANTA</span><h2>Zaloguj się</h2><p>Użyj danych do platformy Testy na Prawo Jazdy.</p><label>Login / e-mail<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required/></label><label>Hasło<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>{error&&<p className="modal-error">{error}</p>}<button className="primary wide" disabled={authBusy}>{authBusy?'Logowanie…':'Zaloguj się'} <span>→</span></button><small>Hasło jest przesyłane bezpośrednio przez backend do API. Token sesji pozostaje po stronie serwera.</small></form></div>}
+ </div>;
 }
