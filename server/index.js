@@ -120,7 +120,7 @@ app.post('/api/exams', requireSession, async (req,res) => {
     const profile = await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession});
     const exam = await upstream('/exam',{method:'POST',session:req.userSession,body:{studentId:req.userSession.studentId,schoolId:profile.schoolId || SCHOOL_FALLBACK,examType:'EXAM',category:req.body?.category || profile.category || 'B',lang:req.body?.lang || 'PL'}});
     // The upstream payload includes answer keys. Never send them to the browser during an exam.
-    const safe = {...exam, execution:(exam.execution || []).map(item => ({...item, question:(() => { const {correct, ...question}=item.question || {}; return question; })()}))};
+    const safe = {...exam, execution:(exam.execution || []).map(item => ({...item, question:(() => { const {correct, ...question}=item.question || {}; return {...question, answerFormat: correct === 'TAK' || correct === 'NIE' ? 'YES_NO' : 'CHOICE'}; })()}))};
     res.status(201).json(safe);
   } catch(e){ handleError(e,res); }
 });
