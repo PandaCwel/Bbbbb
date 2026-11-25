@@ -50,8 +50,17 @@ function handleError(error, res) {
   const status = error.status || 502;
   res.status(status).json({ error: status === 502 ? 'UPSTREAM_REQUEST_FAILED' : 'UPSTREAM_ERROR', message: error.message || 'Błąd komunikacji z API.' });
 }
+function safeExamForBrowser(exam) {
+  return {
+    ...exam,
+    execution: (exam.execution || []).map(item => {
+      const { correct, ...question } = item.question || {};
+      return { ...item, correct: undefined, question: { ...question, answerFormat: correct === 'TAK' || correct === 'NIE' ? 'YES_NO' : 'CHOICE' } };
+    })
+  };
+}
 
-app.get('/api/health', (_req, res) => res.json({ ok:true, service:'teoria-b-api', upstream:'https://api.testynaprawojazdy.eu/eprawko-rest' }));
+app.get('/api/health', (_req, res) => res.json({ ok:true, service:'teoria-b-api', upstream:API }));
 
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -63,22 +72,21 @@ app.post('/api/auth/login', async (req, res) => {
     const data = await upstream('/login', { method:'POST', body:form, multipart:true });
     if (!data?.uuid || !data?.id) return res.status(502).json({ message:'API nie zwróciło wymaganych danych sesji.' });
     const key = randomUUID();
-    sessions.set(key, { token:data.uuid, studentId:String(data.id), userName:data.userName || String(username), createdAt:Date.now() });
+    sessions.set(key, { token:data.uuid, studentId:String(data.id), userName:data.userName || String(username), createdAt:Date.now(), activeExam:null });
     res.setHeader('Set-Cookie', `tb_session=${key}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
     res.json({ id:data.id, userName:data.userName, userType:data.userType });
   } catch (e) { handleError(e,res); }
 });
 
 app.post('/api/auth/logout', requireSession, async (req,res) => {
-  try { await upstream('/logout',{method:'POST',session:req.userSession}); }
-  catch (e) { /* local logout must still clear the local session */ }
+  try { await upstream('/logout',{method:'POST',session:req.userSession}); } catch {}
   const key = cookieValue(req,'tb_session'); if (key) sessions.delete(key);
   res.setHeader('Set-Cookie','tb_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
   res.json({ ok:true });
 });
 
 app.get('/api/profile', requireSession, async (req,res) => {
-  try { const p = await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession}); res.json(p); }
+  try { res.json(await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession})); }
   catch(e){ handleError(e,res); }
 });
 app.get('/api/modules/:category', requireSession, async (req,res) => {
@@ -115,13 +123,80 @@ app.post('/api/progress/store', requireSession, async (req,res) => {
     res.json(await upstream(p,{session:req.userSession}));
   } catch(e){ handleError(e,res); }
 });
+
+// Create an upstream exam. Keep the original answer key only in server memory.
 app.post('/api/exams', requireSession, async (req,res) => {
   try {
     const profile = await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession});
     const exam = await upstream('/exam',{method:'POST',session:req.userSession,body:{studentId:req.userSession.studentId,schoolId:profile.schoolId || SCHOOL_FALLBACK,examType:'EXAM',category:req.body?.category || profile.category || 'B',lang:req.body?.lang || 'PL'}});
-    // The upstream payload includes answer keys. Never send them to the browser during an exam.
-    const safe = {...exam, execution:(exam.execution || []).map(item => ({...item, question:(() => { const {correct, ...question}=item.question || {}; return {...question, answerFormat: correct === 'TAK' || correct === 'NIE' ? 'YES_NO' : 'CHOICE'}; })()}))};
-    res.status(201).json(safe);
+    if (!exam || !Array.isArray(exam.execution) || !exam.execution.length) return res.status(502).json({message:'API nie zwróciło pytań egzaminacyjnych.'});
+    req.userSession.activeExam = exam;
+    res.status(201).json(safeExamForBrowser(exam));
+  } catch(e){ handleError(e,res); }
+});
+
+// Submit the complete exam object observed in Proxyman. Answer keys are read from
+// the server-side copy; the browser never supplies question.correct or execution.correct.
+app.put('/api/exams/submit', requireSession, async (req,res) => {
+  try {
+    const original = req.userSession.activeExam;
+    if (!original?.execution?.length) return res.status(409).json({message:'Brak aktywnego egzaminu. Rozpocznij nowy egzamin.'});
+    const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
+    const byOrdinal = new Map(answers.map(a => [Number(a.ordinalNumber), a]));
+    let correctAnswers = 0;
+    let wrongAnswers = 0;
+    let points = 0;
+    const execution = original.execution.map((item, index) => {
+      const supplied = byOrdinal.get(Number(item.ordinalNumber ?? index + 1)) || {};
+      const answer = typeof supplied.answer === 'string' ? supplied.answer : null;
+      const key = String(item.question?.correct ?? '').trim().toUpperCase();
+      const isCorrect = Boolean(answer) && answer.trim().toUpperCase() === key;
+      if (isCorrect) { correctAnswers += 1; points += Number(item.question?.weight || 0); }
+      else wrongAnswers += 1;
+      return {
+        ...item,
+        answer,
+        firstSelection: Number.isFinite(Number(supplied.firstSelection)) ? Number(supplied.firstSelection) : 0,
+        timeOnQuestion: Number.isFinite(Number(supplied.timeOnQuestion)) ? Number(supplied.timeOnQuestion) : 0,
+        correct: isCorrect,
+        changes: Number.isFinite(Number(supplied.changes)) ? Number(supplied.changes) : 0
+      };
+    });
+    const pointsAll = execution.reduce((sum,item) => sum + Number(item.question?.weight || 0), 0);
+    const now = new Date().toISOString();
+    const payload = {
+      ...original,
+      execution,
+      studentId: original.studentId ?? req.userSession.studentId,
+      startDate: original.startDate || now,
+      endDate: now,
+      correctAnswers,
+      wrongAnswers,
+      points,
+      pointsAll,
+      passed: original.category === 'B' ? points >= 68 : Boolean(original.passed),
+      printed: Boolean(original.printed),
+      internalExam: Boolean(original.internalExam),
+      privateExam: original.privateExam ?? true,
+      qualification: Boolean(original.qualification)
+    };
+    await upstream('/exam',{method:'PUT',session:req.userSession,body:payload});
+    req.userSession.activeExam = null;
+    res.json({ok:true,submitted:true,correctAnswers,wrongAnswers,points,pointsAll,passed:payload.passed});
+  } catch(e){ handleError(e,res); }
+});
+
+app.get('/api/exams/history', requireSession, async (req,res) => {
+  try {
+    const days = Math.min(3650, Math.max(1, Number(req.query.days) || 365));
+    res.json(await upstream(`/exam/light/show/by/student/${encodeURIComponent(req.userSession.studentId)}?days=${days}`,{session:req.userSession}));
+  } catch(e){ handleError(e,res); }
+});
+app.get('/api/statistics', requireSession, async (req,res) => {
+  try {
+    const category = String(req.query.category || 'B');
+    const days = Math.min(3650, Math.max(1, Number(req.query.days) || 365));
+    res.json(await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}/statistics?category=${encodeURIComponent(category)}&days=${days}`,{session:req.userSession}));
   } catch(e){ handleError(e,res); }
 });
 
