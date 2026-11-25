@@ -12,7 +12,7 @@ const SCHOOL_FALLBACK = process.env.SCHOOL_ID || '';
 const sessions = new Map();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-app.use(cors({ origin: process.env.APP_ORIGIN || true, credentials: true }));
+app.use(cors({ origin: process.env.APP_ORIGIN || 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 
 function cookieValue(req, name) {
