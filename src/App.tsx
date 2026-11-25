@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { BookOpen, Brain, CarFront, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Clock3, GraduationCap, LogOut, ShieldCheck, Signal, UserRound, X } from 'lucide-react';
 import { api, type ApiHealth, type Execution, type Module, type Profile, type Progress } from './api';
 
@@ -28,7 +28,7 @@ export default function App(){
  useEffect(()=>{api.health().then(setHealth).catch(()=>{});},[]);
  useEffect(()=>{if(logged){refreshProfile();api.modules(profile?.category||'B').then(setModules).catch(e=>setError(e.message));api.progress().then(setProgress).catch(()=>{});}},[logged]);
  async function refreshProfile(){try{const p=await api.profile();setProfile(p);}catch(e){setError((e as Error).message);}}
- async function login(e:React.FormEvent){e.preventDefault();setAuthBusy(true);setError('');try{await api.login({username,password});setLogged(true);setShowLogin(false);setPassword('');}catch(e){setError((e as Error).message);}finally{setAuthBusy(false);}}
+ async function login(e:FormEvent){e.preventDefault();setAuthBusy(true);setError('');try{await api.login({username,password});setLogged(true);setShowLogin(false);setPassword('');}catch(e){setError((e as Error).message);}finally{setAuthBusy(false);}}
  async function logout(){try{await api.logout();}catch{}setLogged(false);setProfile(null);setSession([]);setTab('home');}
  async function openModule(m:Module){setBusy(true);setError('');try{const data=await api.learning(String(m.moduleId));setSession(data.execution||[]);setMode('learning');setModuleId(String(m.moduleId));setIndex(0);setChoice(null);setChecked(false);setTab('learn');if(data.execution?.[0]?.question) await api.seen(data.execution[0].question,String(m.moduleId));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  async function startExam(){setBusy(true);setError('');setExamNotice('');try{const data=await api.startExam(profile?.category||'B');setSession(data.execution||[]);setMode('exam');setModuleId('');setIndex(0);setChoice(null);setChecked(false);setTab('exam');setExamNotice('Egzamin został pobrany. Zapis odpowiedzi i finalizacja nie są jeszcze potwierdzone przez przechwycone API.');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
