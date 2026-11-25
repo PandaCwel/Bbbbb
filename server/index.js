@@ -47,6 +47,9 @@ async function upstream(pathname, { method='GET', session, body, multipart=false
     const error = new Error(data?.message || data?.error || `API zwróciło HTTP ${response.status}`);
     error.status = response.status;
     error.upstream = data;
+    error.upstreamRaw = raw;
+    error.upstreamContentType = response.headers.get('content-type') || '';
+    error.upstreamStatusText = response.statusText || '';
     throw error;
   }
   return data;
@@ -80,7 +83,29 @@ app.post('/api/auth/login', async (req, res) => {
     sessions.set(key, { token:data.uuid, studentId:String(data.id), userName:data.userName || String(username), createdAt:Date.now(), activeExam:null });
     res.setHeader('Set-Cookie', `tb_session=${key}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
     res.json({ id:data.id, userName:data.userName, userType:data.userType });
-  } catch (e) { handleError(e,res); }
+  } catch (e) {
+    const raw = typeof e.upstreamRaw === 'string' ? e.upstreamRaw : '';
+    const safeBody = raw
+      .replace(/("?(?:password|passwd|uuid|jsessionid|token|sessionid)"?\s*[:=]\s*")[^"]*"/gi, '$1[REDACTED]"')
+      .replace(/(password|passwd|uuid|jsessionid|token|sessionid)=([^&\s]+)/gi, '$1=[REDACTED]')
+      .slice(0, 700);
+    console.error('[LOGIN_UPSTREAM_ERROR]', {
+      status: e.status || null,
+      statusText: e.upstreamStatusText || '',
+      contentType: e.upstreamContentType || '',
+      response: safeBody
+    });
+    res.status(e.status || 502).json({
+      error: 'LOGIN_UPSTREAM_FAILED',
+      message: e.message || 'Logowanie do API nie powiodło się.',
+      diagnostics: {
+        upstreamStatus: e.status || null,
+        upstreamStatusText: e.upstreamStatusText || '',
+        upstreamContentType: e.upstreamContentType || '',
+        upstreamResponse: safeBody || '(pusta odpowiedź)'
+      }
+    });
+  }
 });
 
 app.post('/api/auth/logout', requireSession, async (req,res) => {
