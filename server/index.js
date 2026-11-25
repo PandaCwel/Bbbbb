@@ -31,9 +31,10 @@ function requireSession(req, res, next) {
 async function upstream(pathname, { method='GET', session, body, multipart=false } = {}) {
   const headers = {
     Accept: 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
     Origin: 'https://panel.testynaprawojazdy.eu',
     Referer: 'https://panel.testynaprawojazdy.eu/',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 27_0_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/158.0.8127.35 Mobile/15E148 Safari/604.1'
   };
   if (session?.token) headers.jsessionid = session.token;
   let payload;
@@ -75,8 +76,10 @@ app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ message:'Podaj login i hasło.' });
     const form = new FormData();
-    form.set('userName', String(username));
-    form.set('password', String(password));
+    // Official panel sends exactly these two multipart fields, in this order.
+    // Do not set Content-Type manually: fetch must generate the multipart boundary.
+    form.append('userName', String(username));
+    form.append('password', String(password));
     const data = await upstream('/login', { method:'POST', body:form, multipart:true });
     if (!data?.uuid || !data?.id) return res.status(502).json({ message:'API nie zwróciło wymaganych danych sesji.' });
     const key = randomUUID();
@@ -117,6 +120,27 @@ app.post('/api/auth/logout', requireSession, async (req,res) => {
 
 app.get('/api/profile', requireSession, async (req,res) => {
   try { res.json(await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession})); }
+  catch(e){ handleError(e,res); }
+});
+
+app.get('/api/school', requireSession, async (req,res) => {
+  try {
+    const profile = await upstream(`/student/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession});
+    const schoolId = profile.schoolId || SCHOOL_FALLBACK;
+    if (!schoolId) return res.status(404).json({message:'Profil nie zawiera schoolId.'});
+    res.json(await upstream(`/school/${encodeURIComponent(schoolId)}/public-data`,{session:req.userSession}));
+  } catch(e){ handleError(e,res); }
+});
+app.get('/api/system-messages', async (_req,res) => {
+  try { res.json(await upstream('/system-messages')); }
+  catch(e){ handleError(e,res); }
+});
+app.get('/api/questions/last-update', requireSession, async (req,res) => {
+  try { res.json(await upstream('/questions/lastUpdateDate',{session:req.userSession})); }
+  catch(e){ handleError(e,res); }
+});
+app.get('/api/questions/student-ids', requireSession, async (req,res) => {
+  try { res.json(await upstream(`/questions/student/ids/${encodeURIComponent(req.userSession.studentId)}`,{session:req.userSession})); }
   catch(e){ handleError(e,res); }
 });
 app.get('/api/modules/:category', requireSession, async (req,res) => {
