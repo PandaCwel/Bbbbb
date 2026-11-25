@@ -1,62 +1,57 @@
 # Teoria B — Prawko Mobile
 
-Mobilna aplikacja webowa/PWA-ready do nauki pytań na prawo jazdy, oparta na potwierdzonym ruchu API platformy Testy na Prawo Jazdy.
+Aplikacja webowa do nauki pytań na prawo jazdy i próbnych egzaminów, oparta na API platformy Testy na Prawo Jazdy.
 
 ## Stack
 - React 18 + TypeScript + Vite
 - Node.js 20+ + Express
-- Oryginalne API: `https://api.testynaprawojazdy.eu/eprawko-rest`
+- API: `https://api.testynaprawojazdy.eu/eprawko-rest`
 
-## Uruchomienie
+## Uruchomienie lokalne
 1. Zainstaluj Node.js 20 lub nowszy.
-2. Sklonuj repozytorium i uruchom `npm install`.
-3. Skopiuj `.env.example` do `.env`.
-4. Uruchom `npm run dev`.
-   - frontend Vite: port 5173
-   - backend Express: port 3001
+2. Sklonuj repozytorium:
+   ```bash
+   git clone https://github.com/PandaCwel/Bbbbb.git
+   cd Bbbbb
+   ```
+3. Zainstaluj zależności:
+   ```bash
+   npm install
+   ```
+4. Skopiuj `.env.example` do `.env` (Windows: `copy .env.example .env`; macOS/Linux: `cp .env.example .env`).
+5. Uruchom aplikację:
+   ```bash
+   npm run dev
+   ```
+6. Otwórz frontend pod adresem **http://localhost:5173**. Backend działa na porcie **3001**.
 
-Produkcja:
-```bash
-npm run build
-NODE_ENV=production npm start
-```
-Express serwuje wtedy frontend z katalogu `dist`. Hosting musi obsługiwać Node.js i HTTPS. Sam GitHub Pages nie uruchomi backendu Express.
+## Wdrożenie online (Render)
+1. Zaloguj się na https://render.com przez GitHub.
+2. Wybierz **New → Blueprint**.
+3. Wskaż repozytorium `PandaCwel/Bbbbb`.
+4. Render odczyta `render.yaml`, zbuduje projekt i uruchomi serwer.
+5. Otwórz adres HTTPS podany przez Render.
 
-## Zaimplementowane endpointy upstream
+Nie używaj GitHub Pages jako hostingu całej aplikacji — Pages nie uruchamia serwera Express, który bezpiecznie przechowuje sesję do API.
 
-Wszystkie żądania upstream wykonywane są po stronie serwera. Token `uuid` z logowania jest przechowywany po stronie backendu i przekazywany jako nagłówek `jsessionid`. Przeglądarka otrzymuje wyłącznie własne ciasteczko HttpOnly.
+## Co jest zaimplementowane
+- Logowanie przez oryginalny endpoint API; hasło nie jest zapisywane.
+- Token upstream pozostaje po stronie serwera, przeglądarka otrzymuje własne cookie HttpOnly.
+- Profil, lista modułów, nauka, oznaczanie pytań i zapisywanie postępu.
+- Rozpoczęcie egzaminu przez `POST /exam`.
+- Odpowiedzi egzaminacyjne są trzymane w interfejsie, a komplet obiektu egzaminu jest wysyłany przez `PUT /exam`.
+- Klucz poprawnych odpowiedzi pozostaje po stronie backendu i nie jest wysyłany do przeglądarki w trybie egzaminu.
+- Historia egzaminów: `GET /exam/light/show/by/student/{studentId}?days=365`.
+- Statystyki: `GET /student/{studentId}/statistics?category=B&days=365`.
 
-- `POST /login` — multipart/form-data: `userName`, `password`
-- `POST /logout`
-- `GET /student/{studentId}`
-- `GET /questions/getModules/{category}`
-- `PUT /learning/create/studentId/{studentId}/schoolId/{schoolId}/category/{category}/lang/{lang}/moduleId/{moduleId}`
-- `POST /progress/seen`
-- `GET /progress/learn/{studentId}`
-- `GET /progress/learn/store/{studentId}/{moduleId}/{questionNumber}/{max}/{category}`
-- `POST /exam`
+## Ważne ograniczenia i uwagi
+- Format `PUT /exam`, pola obiektu i status HTTP 200 pochodzą z przechwyconego ruchu Proxyman.
+- Próg zaliczenia kategorii B ustawiono roboczo na 68/74 punktów. Wymaga potwierdzenia w rzeczywistym teście na koncie; nie jest to pole zwracane przez API w pokazanym logu.
+- Jednostka `timeOnQuestion` nie została ustalona; aplikacja obecnie przesyła 0.
+- Nie znaleziono endpointu szczegółów egzaminu ani bezpośredniego URL zdjęć/filmów.
+- Historia i statystyki wymagają aktywnego konta oraz dostępności upstream API.
+- Sesje backendu są przechowywane w pamięci procesu. Restart serwera wyloguje użytkowników; przed publicznym wdrożeniem produkcyjnym należy dodać trwały magazyn sesji.
+- Nie commituj pliku `.env`. Nie wpisuj tokenu API ręcznie do kodu.
 
-Backend udostępnia aplikacji odpowiadające im endpointy `/api/*`.
-
-## Ważne ograniczenia wynikające z przechwyconego API
-
-- Rozpoczęcie egzaminu jest potwierdzone, ale wysyłanie odpowiedzi, kończenie egzaminu, historia i pobieranie wyniku nie zostały odnalezione. Aplikacja nie udaje, że te operacje działają.
-- Odpowiedzi egzaminacyjne `correct` są usuwane z obiektów wysyłanych do przeglądarki.
-- Nie ustalono hosta ani ścieżek multimediów. Interfejs pokazuje nazwę pliku, ale nie konstruuje zgadywanego URL.
-- Nie ustalono czasu egzaminu ani pełnych zasad punktacji.
-- Sesje backendu są przechowywane w pamięci procesu. Restart serwera wyloguje aktywnych użytkowników; przed większym wdrożeniem należy dodać współdzielony magazyn sesji.
-- Rzeczywiste logowanie i komunikacja z upstream wymagają aktywnego konta platformy oraz dostępności jej API. Nie można potwierdzić działania na koncie użytkownika bez testu z jego danymi.
-
-## Bezpieczeństwo
-- Hasło nie jest zapisywane w aplikacji.
-- Token upstream nie jest wysyłany do przeglądarki ani logowany.
-- Cookie aplikacji ma flagę HttpOnly i SameSite=Lax; w produkcji również Secure.
-- Nie commituj pliku `.env`.
-
-## Wdrożenie z telefonu (Render)
-1. Otwórz Render i zaloguj się przez GitHub.
-2. Wybierz **New → Blueprint** i wskaż repozytorium `PandaCwel/Bbbbb`.
-3. Render odczyta `render.yaml`, zbuduje frontend i uruchomi Express.
-4. Po zakończeniu wdrożenia otwórz wygenerowany adres HTTPS. Aplikacja i backend działają pod tym samym adresem.
-
-Nie publikuj aplikacji jako samego GitHub Pages: Pages hostuje pliki statyczne i nie uruchomi serwera Express potrzebnego do bezpiecznego przechowywania sesji API.
+## Zmienne środowiskowe
+Skopiuj `.env.example` do `.env`. Nie wklejaj prawdziwych haseł ani tokenów do repozytorium.
