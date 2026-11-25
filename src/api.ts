@@ -15,7 +15,13 @@ export type ExamAnswer = { ordinalNumber:number; answer:string|null; firstSelect
 async function request<T>(url:string, init?:RequestInit):Promise<T>{
   const response=await fetch(url,{...init,credentials:'include',headers:{'Content-Type':'application/json',...(init?.headers||{})}});
   const raw=await response.text(); let data:any=null; try{data=raw?JSON.parse(raw):null;}catch{data=raw;}
-  if(!response.ok) throw new Error(data?.message||data?.error||`HTTP ${response.status}`);
+  if(!response.ok) {
+    const diagnostics = data?.diagnostics;
+    const detail = diagnostics
+      ? ` (API: HTTP ${diagnostics.upstreamStatus ?? response.status}; ${diagnostics.upstreamContentType || 'brak Content-Type'}; odpowiedź: ${diagnostics.upstreamResponse || '(pusta)'})`
+      : '';
+    throw new Error((data?.message||data?.error||`HTTP ${response.status}`) + detail);
+  }
   return data as T;
 }
 export const api={
@@ -23,6 +29,10 @@ export const api={
  login:(credentials:{username:string;password:string})=>request<{id:string|number;userName:string}>('/api/auth/login',{method:'POST',body:JSON.stringify(credentials)}),
  logout:()=>request<{ok:boolean}>('/api/auth/logout',{method:'POST'}),
  profile:()=>request<Profile>('/api/profile'),
+ school:()=>request<Record<string,unknown>>('/api/school'),
+ systemMessages:()=>request<unknown[]>('/api/system-messages'),
+ questionsLastUpdate:()=>request<string>('/api/questions/last-update'),
+ studentQuestionIds:()=>request<Array<number|string>>('/api/questions/student-ids'),
  modules:(category='B')=>request<Module[]>(`/api/modules/${encodeURIComponent(category)}`),
  learning:(moduleId:string,category='B',lang='PL')=>request<LearningSession>('/api/learning',{method:'POST',body:JSON.stringify({moduleId,category,lang})}),
  seen:(q:Question,moduleId:string)=>request('/api/progress/seen',{method:'POST',body:JSON.stringify({externalId:q.externalId,categories:q.categories,type:q.type,moduleId})}),
