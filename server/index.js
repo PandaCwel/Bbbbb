@@ -51,6 +51,12 @@ async function upstream(pathname, { method='GET', session, body, multipart=false
     error.upstreamRaw = raw;
     error.upstreamContentType = response.headers.get('content-type') || '';
     error.upstreamStatusText = response.statusText || '';
+    // Log only diagnostic response headers; never dump cookies or arbitrary headers.
+    error.upstreamHeaders = Object.fromEntries(
+      ['www-authenticate','server','via','retry-after','x-request-id','content-length']
+        .map(name => [name, response.headers.get(name)])
+        .filter(([, value]) => value !== null)
+    );
     throw error;
   }
   return data;
@@ -96,6 +102,7 @@ app.post('/api/auth/login', async (req, res) => {
       status: e.status || null,
       statusText: e.upstreamStatusText || '',
       contentType: e.upstreamContentType || '',
+      responseHeaders: e.upstreamHeaders || {},
       response: safeBody
     });
     res.status(e.status || 502).json({
@@ -105,6 +112,7 @@ app.post('/api/auth/login', async (req, res) => {
         upstreamStatus: e.status || null,
         upstreamStatusText: e.upstreamStatusText || '',
         upstreamContentType: e.upstreamContentType || '',
+        upstreamHeaders: e.upstreamHeaders || {},
         upstreamResponse: safeBody || '(pusta odpowiedź)'
       }
     });
