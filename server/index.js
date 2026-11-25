@@ -29,7 +29,12 @@ function requireSession(req, res, next) {
   next();
 }
 async function upstream(pathname, { method='GET', session, body, multipart=false } = {}) {
-  const headers = { Accept: 'application/json, text/plain, */*', Origin: 'https://panel.testynaprawojazdy.eu' };
+  const headers = {
+    Accept: 'application/json, text/plain, */*',
+    Origin: 'https://panel.testynaprawojazdy.eu',
+    Referer: 'https://panel.testynaprawojazdy.eu/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+  };
   if (session?.token) headers.jsessionid = session.token;
   let payload;
   if (multipart) payload = body;
