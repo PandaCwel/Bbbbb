@@ -2,7 +2,7 @@ export type ApiHealth = { ok:boolean; service:string; upstream:string };
 export type Module = { id:number; moduleId:string; count:number };
 export type Question = {
   id:number; externalId:number; questionText:string; answerA:string; answerB:string; answerC:string;
-  correct?:string; weight:number; categories:string; module:{id:number;name:string;moduleId:string};
+  correct?:string; answerFormat?:'YES_NO'|'CHOICE'; weight:number; categories:string; module:{id:number;name:string;moduleId:string};
   media?:string|null; madiaType?:string; explenation?:string; legalSource?:string; type:string;
 };
 export type Execution = { id:number|null; ordinalNumber:number; question:Question; answer:string|null; correct:boolean };
